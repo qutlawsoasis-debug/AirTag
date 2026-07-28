@@ -30,26 +30,40 @@ export async function checkForUpdate(onUpdateAvailable) {
 }
 
 export async function downloadUpdate(url, version, onProgress) {
+  console.log('downloadUpdate called', url, version);
+  
   const destPath = FileSystem.cacheDirectory + `AirTag-${version}.apk`;
+  console.log('destPath:', destPath);
 
-  const downloadResumable = FileSystem.createDownloadResumable(
-    url,
-    destPath,
-    {},
-    (progress) => {
-      const percent = progress.totalBytesWritten / progress.totalBytesExpectedToWrite;
-      onProgress(percent);
-    }
-  );
+  try {
+    const downloadResumable = FileSystem.createDownloadResumable(
+      url,
+      destPath,
+      {},
+      (progress) => {
+        const percent = progress.totalBytesWritten / progress.totalBytesExpectedToWrite;
+        console.log('progress:', percent);
+        onProgress(percent);
+      }
+    );
 
-  await downloadResumable.downloadAsync();
+    console.log('starting download...');
+    const result = await downloadResumable.downloadAsync();
+    console.log('download complete:', result);
 
-  // Получаем content:// URI через FileProvider
-  const contentUri = await FileSystem.getContentUriAsync(destPath);
+    console.log('getting content uri...');
+    const contentUri = await FileSystem.getContentUriAsync(destPath);
+    console.log('contentUri:', contentUri);
 
-  await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-    data: contentUri,
-    flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
-    type: 'application/vnd.android.package-archive',
-  });
+    console.log('launching intent...');
+    await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+      data: contentUri,
+      flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+      type: 'application/vnd.android.package-archive',
+    });
+    console.log('intent launched');
+  } catch (e) {
+    console.error('downloadUpdate error:', e);
+    throw e;
+  }
 }
