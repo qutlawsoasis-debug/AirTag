@@ -4,6 +4,7 @@
   "main": "index.js",
   "dependencies": {
     "@config-plugins/react-native-ble-plx": "^7.0.0",
+    "buffer": "^6.0.3",
     "expo": "~57.0.8",
     "expo-dev-client": "~57.0.9",
     "expo-status-bar": "~57.0.1",
