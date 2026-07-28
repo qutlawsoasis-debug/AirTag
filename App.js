@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, TextInput, Alert, Permissions
 import { BleManager } from 'react-native-ble-plx';
 import { Buffer } from 'buffer';
 import { Feather } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import UpdateBanner from './UpdateBanner';
 
 const manager = new BleManager();
@@ -105,16 +106,33 @@ export default function App() {
       const base64Id = Buffer.from(targetId).toString('base64');
       await connectedDevice.writeCharacteristicWithResponseForService(SERVICE_UUID, CHAR_UUID_TARGET_ID, base64Id);
       
-      Alert.alert("Синхронизация успешна", "Параметры цели загружены в радар.");
+      Toast.show({
+        type: 'success',
+        text1: 'СИНХРОНИЗАЦИЯ УСПЕШНА',
+        text2: 'Параметры цели загружены в радар',
+        position: 'bottom',
+        bottomOffset: 100
+      });
     } catch (e) {
       console.warn(e);
-      Alert.alert("Ошибка связи", "Не удалось загрузить параметры.");
+      Toast.show({
+        type: 'error',
+        text1: 'ОШИБКА СВЯЗИ',
+        text2: 'Не удалось загрузить параметры',
+        position: 'bottom',
+        bottomOffset: 100
+      });
     }
   };
 
   const triggerBeep = async () => {
     if (!connectedDevice) {
-      Alert.alert("Ошибка", "Связь не установлена");
+      Toast.show({
+        type: 'error',
+        text1: 'СВЯЗЬ НЕ УСТАНОВЛЕНА',
+        position: 'bottom',
+        bottomOffset: 100
+      });
       return;
     }
     try {
@@ -184,7 +202,7 @@ export default function App() {
             <TextInput 
               style={styles.input} 
               value={targetName}
-              onChangeText={setTargetName}
+              onChangeText={(t) => setTargetName(t.replace(/[^A-Za-z0-9 ]/g, ''))}
               placeholder="Напр. ALPHA"
               placeholderTextColor="rgba(255,255,255,0.3)"
               maxLength={10}
@@ -209,6 +227,7 @@ export default function App() {
         </View>
       </View>
       <UpdateBanner />
+      <Toast />
     </View>
   );
 }
