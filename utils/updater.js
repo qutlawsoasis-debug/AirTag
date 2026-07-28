@@ -1,5 +1,5 @@
-import { Linking } from 'react-native';
-import RNFS from 'react-native-fs';
+import * as FileSystem from 'expo-file-system';
+import * as IntentLauncher from 'expo-intent-launcher';
 
 const GITHUB_OWNER = 'qutlawsoasis-debug';
 const GITHUB_REPO = 'AirTag';
@@ -30,18 +30,26 @@ export async function checkForUpdate(onUpdateAvailable) {
 }
 
 export async function downloadUpdate(url, version, onProgress) {
-  const destPath = `${RNFS.DownloadDirectoryPath}/AirTag-${version}.apk`;
+  const destPath = FileSystem.cacheDirectory + `AirTag-${version}.apk`;
 
-  const job = RNFS.downloadFile({
-    fromUrl: url,
-    toFile: destPath,
-    progress: (res) => {
-      const progress = res.bytesWritten / res.contentLength;
-      onProgress(progress);
-    },
-    progressDivider: 1,
+  const downloadResumable = FileSystem.createDownloadResumable(
+    url,
+    destPath,
+    {},
+    (progress) => {
+      const percent = progress.totalBytesWritten / progress.totalBytesExpectedToWrite;
+      onProgress(percent);
+    }
+  );
+
+  await downloadResumable.downloadAsync();
+
+  // Получаем content:// URI через FileProvider
+  const contentUri = await FileSystem.getContentUriAsync(destPath);
+
+  await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+    data: contentUri,
+    flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+    type: 'application/vnd.android.package-archive',
   });
-
-  await job.promise;
-  await Linking.openURL(`file://${destPath}`);
 }
