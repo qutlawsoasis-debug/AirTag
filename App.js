@@ -242,19 +242,14 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
     alignSelf: 'flex-start',
-    borderWidth: 1,
   },
   badgeDisconnected: {
-    backgroundColor: 'rgba(255, 69, 58, 0.1)',
-    borderColor: 'rgba(255, 69, 58, 0.3)',
+    backgroundColor: 'transparent',
   },
   badgeConnected: {
-    backgroundColor: 'rgba(48, 209, 88, 0.1)',
-    borderColor: 'rgba(48, 209, 88, 0.3)',
+    backgroundColor: 'transparent',
   },
   pulse: {
     width: 6,
