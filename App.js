@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, TextInput, Alert, PermissionsAndroid, Platform } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
 import { Buffer } from 'buffer';
+import { Feather } from '@expo/vector-icons';
 
 const manager = new BleManager();
 
@@ -9,13 +10,15 @@ const manager = new BleManager();
 const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 const CHAR_UUID_NAME = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 const CHAR_UUID_BEEP = "beb5483e-36e1-4688-b7f5-ea07361b26a9";
+const CHAR_UUID_TARGET_ID = "beb5483e-36e1-4688-b7f5-ea07361b26a0";
 
 export default function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [connectedDevice, setConnectedDevice] = useState(null);
   const [targetName, setTargetName] = useState('');
-  const [statusMsg, setStatusMsg] = useState('Не подключено');
+  const [targetId, setTargetId] = useState('B'); // По умолчанию B
+  const [statusMsg, setStatusMsg] = useState('АВТОНОМНЫЙ РЕЖИМ');
 
   useEffect(() => {
     requestPermissions();
@@ -33,7 +36,7 @@ export default function App() {
   };
 
   const connectToDevice = (device) => {
-    setStatusMsg('Подключение...');
+    setStatusMsg('СИНХРОНИЗАЦИЯ...');
     manager.stopDeviceScan();
     setIsScanning(false);
     
@@ -42,33 +45,38 @@ export default function App() {
       .then(async (d) => {
         setIsConnected(true);
         setConnectedDevice(d);
-        setStatusMsg('Подключено: Radar-01');
+        setStatusMsg('СВЯЗЬ УСТАНОВЛЕНА');
 
         // Читаем текущее имя
-        const characteristic = await d.readCharacteristicForService(SERVICE_UUID, CHAR_UUID_NAME);
-        const name = Buffer.from(characteristic.value, 'base64').toString('utf8');
+        const charName = await d.readCharacteristicForService(SERVICE_UUID, CHAR_UUID_NAME);
+        const name = Buffer.from(charName.value, 'base64').toString('utf8');
         setTargetName(name);
+
+        // Читаем текущий ID
+        const charId = await d.readCharacteristicForService(SERVICE_UUID, CHAR_UUID_TARGET_ID);
+        const idStr = Buffer.from(charId.value, 'base64').toString('utf8');
+        if (idStr) setTargetId(idStr);
 
         d.onDisconnected((error, disconnectedDevice) => {
           setIsConnected(false);
           setConnectedDevice(null);
-          setStatusMsg('Отключено');
+          setStatusMsg('АВТОНОМНЫЙ РЕЖИМ');
         });
       })
       .catch((error) => {
         console.warn(error);
-        setStatusMsg('Ошибка подключения');
+        setStatusMsg('ОШИБКА ПРОТОКОЛА');
       });
   };
 
   const scanAndConnect = () => {
     setIsScanning(true);
-    setStatusMsg('Поиск Radar-01...');
+    setStatusMsg('ПОИСК СИГНАЛА...');
     manager.startDeviceScan(null, null, (error, device) => {
       if (error) {
         console.warn(error);
         setIsScanning(false);
-        setStatusMsg('Ошибка поиска');
+        setStatusMsg('ОЖИДАНИЕ СИГНАЛА РАДАРА');
         return;
       }
       if (device && device.name === 'Radar-01') {
@@ -80,25 +88,34 @@ export default function App() {
       if (isScanning) {
         manager.stopDeviceScan();
         setIsScanning(false);
-        if (!isConnected) setStatusMsg('Радар не найден');
+        if (!isConnected) setStatusMsg('ОЖИДАНИЕ СИГНАЛА РАДАРА');
       }
     }, 10000);
   };
 
-  const sendName = async () => {
+  const syncSettings = async () => {
     if (!connectedDevice) return;
     try {
+      // Отправляем имя
       const base64Name = Buffer.from(targetName).toString('base64');
       await connectedDevice.writeCharacteristicWithResponseForService(SERVICE_UUID, CHAR_UUID_NAME, base64Name);
-      Alert.alert("Успех", "Имя успешно обновлено на радаре!");
+      
+      // Отправляем ID
+      const base64Id = Buffer.from(targetId).toString('base64');
+      await connectedDevice.writeCharacteristicWithResponseForService(SERVICE_UUID, CHAR_UUID_TARGET_ID, base64Id);
+      
+      Alert.alert("Синхронизация успешна", "Параметры цели загружены в радар.");
     } catch (e) {
       console.warn(e);
-      Alert.alert("Ошибка", "Не удалось отправить имя");
+      Alert.alert("Ошибка связи", "Не удалось загрузить параметры.");
     }
   };
 
   const triggerBeep = async () => {
-    if (!connectedDevice) return;
+    if (!connectedDevice) {
+      Alert.alert("Ошибка", "Связь не установлена");
+      return;
+    }
     try {
       const payload = Buffer.from("1").toString('base64');
       await connectedDevice.writeCharacteristicWithoutResponseForService(SERVICE_UUID, CHAR_UUID_BEEP, payload);
@@ -111,52 +128,82 @@ export default function App() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Radar Control</Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.title}>T-RADAR</Text>
+          <Feather name="crosshair" size={24} color="#0A84FF" />
+        </View>
         <View style={styles.statusRow}>
-          <View style={[styles.dot, isConnected ? styles.dotConnected : styles.dotDisconnected]} />
-          <Text style={styles.statusText}>{statusMsg}</Text>
+          <View style={[styles.statusBadge, isConnected ? styles.badgeConnected : styles.badgeDisconnected]}>
+            <View style={[styles.pulse, isConnected ? styles.pulseConnected : styles.pulseDisconnected]} />
+            <Text style={[styles.statusText, isConnected ? styles.textConnected : styles.textDisconnected]}>
+              {statusMsg}
+            </Text>
+          </View>
         </View>
       </View>
 
       <View style={styles.content}>
         {/* Connect Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Соединение</Text>
-          <Text style={styles.cardSubtitle}>Подключитесь к ESP32 по Bluetooth</Text>
+          <Text style={styles.cardTitle}>Блок Управления</Text>
+          <Text style={styles.cardSubtitle}>Шифрованный канал связи BLE</Text>
           <TouchableOpacity 
             style={[styles.primaryBtn, isConnected && styles.hidden]} 
             onPress={scanAndConnect}
             disabled={isScanning}
           >
-            <Text style={styles.btnText}>{isScanning ? "Поиск..." : "Найти Радар"}</Text>
+            <Feather name="radio" size={18} color="#FFF" style={styles.btnIcon} />
+            <Text style={styles.btnText}>{isScanning ? "ИДЕТ ПОИСК..." : "УСТАНОВИТЬ СВЯЗЬ"}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Settings Card */}
-        <View style={[styles.card, !isConnected && styles.disabled]}>
-          <Text style={styles.cardTitle}>Настройки цели</Text>
-          <Text style={styles.cardSubtitle}>Измените имя, отображаемое на экране</Text>
+        <View 
+          style={[styles.card, !isConnected && styles.disabled]} 
+          pointerEvents={isConnected ? "auto" : "none"}
+        >
+          <Text style={styles.cardTitle}>Параметры Цели</Text>
+          <Text style={styles.cardSubtitle}>Настройка радиочастотного маяка</Text>
+          
+          <Text style={styles.label}>КАНАЛ (ID)</Text>
+          <View style={styles.channelGroup}>
+            {['A', 'B', 'C'].map(ch => (
+              <TouchableOpacity 
+                key={ch} 
+                style={[styles.channelBtn, targetId === ch && styles.channelBtnActive]}
+                onPress={() => setTargetId(ch)}
+              >
+                <Text style={[styles.channelText, targetId === ch && styles.channelTextActive]}>{ch}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.label}>ПОЗЫВНОЙ</Text>
           <View style={styles.inputGroup}>
             <TextInput 
               style={styles.input} 
               value={targetName}
               onChangeText={setTargetName}
-              placeholder="Имя цели (напр. Olya)"
-              placeholderTextColor="rgba(255,255,255,0.4)"
+              placeholder="Напр. ALPHA"
+              placeholderTextColor="rgba(255,255,255,0.3)"
               maxLength={10}
             />
-            <TouchableOpacity style={styles.saveBtn} onPress={sendName}>
-              <Text style={styles.saveBtnText}>Сохранить</Text>
+            <TouchableOpacity style={styles.saveBtn} onPress={syncSettings}>
+              <Feather name="upload" size={18} color="#0A84FF" />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Actions Card */}
-        <View style={[styles.card, !isConnected && styles.disabled]}>
-          <Text style={styles.cardTitle}>Действия</Text>
-          <Text style={styles.cardSubtitle}>Отправить команду на радар</Text>
+        <View 
+          style={[styles.card, !isConnected && styles.disabled]}
+          pointerEvents={isConnected ? "auto" : "none"}
+        >
+          <Text style={styles.cardTitle}>Протоколы</Text>
+          <Text style={styles.cardSubtitle}>Активные команды оборудования</Text>
           <TouchableOpacity style={styles.actionBtn} onPress={triggerBeep}>
-            <Text style={styles.btnText}>🔔 Включить пищалку</Text>
+            <Feather name="volume-2" size={18} color="#FFF" style={styles.btnIcon} />
+            <Text style={styles.btnText}>АКУСТИЧЕСКИЙ ПЕЛЕНГ</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -167,77 +214,112 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#050505',
     paddingTop: 60,
   },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   title: {
     color: '#FFF',
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: 1.5,
   },
   statusRow: {
+    marginTop: 12,
+  },
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  badgeDisconnected: {
+    backgroundColor: 'rgba(255, 69, 58, 0.1)',
+    borderColor: 'rgba(255, 69, 58, 0.3)',
+  },
+  badgeConnected: {
+    backgroundColor: 'rgba(48, 209, 88, 0.1)',
+    borderColor: 'rgba(48, 209, 88, 0.3)',
+  },
+  pulse: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     marginRight: 8,
   },
-  dotConnected: {
+  pulseDisconnected: {
+    backgroundColor: '#FF453A',
+    shadowColor: '#FF453A',
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
+  },
+  pulseConnected: {
     backgroundColor: '#30D158',
     shadowColor: '#30D158',
     shadowOpacity: 0.8,
     shadowRadius: 5,
   },
-  dotDisconnected: {
-    backgroundColor: '#FF453A',
-  },
   statusText: {
-    color: 'rgba(235, 235, 245, 0.6)',
-    fontSize: 14,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  textDisconnected: {
+    color: '#FF453A',
+  },
+  textConnected: {
+    color: '#30D158',
   },
   content: {
     padding: 20,
-    gap: 20,
+    gap: 16,
   },
   card: {
-    backgroundColor: 'rgba(28, 28, 30, 0.6)',
+    backgroundColor: '#0F0F12',
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
   },
   disabled: {
-    opacity: 0.4,
+    opacity: 0.3,
   },
   hidden: {
     display: 'none',
   },
   cardTitle: {
     color: '#FFF',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 1,
     marginBottom: 4,
+    textTransform: 'uppercase',
   },
   cardSubtitle: {
-    color: 'rgba(235, 235, 245, 0.6)',
-    fontSize: 14,
-    marginBottom: 16,
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 12,
+    marginBottom: 20,
   },
   primaryBtn: {
     backgroundColor: '#0A84FF',
     borderRadius: 12,
     padding: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   actionBtn: {
     backgroundColor: 'rgba(255,255,255,0.05)',
@@ -245,12 +327,49 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 12,
     padding: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnIcon: {
+    marginRight: 10,
   },
   btnText: {
     color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  label: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  channelGroup: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 20,
+  },
+  channelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+  },
+  channelBtnActive: {
+    backgroundColor: 'rgba(10, 132, 255, 0.1)',
+    borderColor: '#0A84FF',
+  },
+  channelText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: '700',
+  },
+  channelTextActive: {
+    color: '#0A84FF',
   },
   inputGroup: {
     flexDirection: 'row',
@@ -266,16 +385,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     color: '#FFF',
     fontSize: 16,
+    fontWeight: '600',
   },
   saveBtn: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(10, 132, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(10, 132, 255, 0.3)',
     justifyContent: 'center',
     paddingHorizontal: 20,
     borderRadius: 12,
-  },
-  saveBtnText: {
-    color: '#0A84FF',
-    fontWeight: '600',
-    fontSize: 16,
   }
 });

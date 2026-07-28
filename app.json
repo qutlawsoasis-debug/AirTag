@@ -21,6 +21,11 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
     "plugins": [
       [
         "react-native-ble-plx",
