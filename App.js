@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, TextInput, Alert, Permissions
 import { BleManager } from 'react-native-ble-plx';
 import { Buffer } from 'buffer';
 import { Feather } from '@expo/vector-icons';
+import UpdateBanner from './UpdateBanner';
 
 const manager = new BleManager();
 
@@ -207,6 +208,7 @@ export default function App() {
           </TouchableOpacity>
         </View>
       </View>
+      <UpdateBanner />
     </View>
   );
 }

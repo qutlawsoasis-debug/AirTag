@@ -11,6 +11,11 @@
     },
     "android": {
       "package": "com.radar.app",
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.REQUEST_INSTALL_PACKAGES"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#000000",
         "foregroundImage": "./assets/android-icon-foreground.png",

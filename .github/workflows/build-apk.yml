@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Repository
@@ -37,8 +39,14 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Get version from package.json
+        id: version
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: AirTag-Release.apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          name: Release v${{ steps.version.outputs.VERSION }}
+          files: android/app/build/outputs/apk/release/app-release.apk
+          token: ${{ secrets.GITHUB_TOKEN }}

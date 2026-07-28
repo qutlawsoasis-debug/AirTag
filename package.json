@@ -4,13 +4,15 @@
   "main": "index.js",
   "dependencies": {
     "@config-plugins/react-native-ble-plx": "^7.0.0",
+    "@expo/vector-icons": "^15.1.1",
     "buffer": "^6.0.3",
     "expo": "~57.0.8",
     "expo-dev-client": "~57.0.9",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-native": "0.86.0",
-    "react-native-ble-plx": "^3.5.1"
+    "react-native-ble-plx": "^3.5.1",
+    "react-native-fs": "^2.20.0"
   },
   "scripts": {
     "start": "expo start",
