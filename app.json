@@ -2,7 +2,7 @@
   "expo": {
     "name": "AirTag",
     "slug": "AirTag",
-    "version": "1.0.0",
+    "version": "1.0.10",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -11,6 +11,7 @@
     },
     "android": {
       "package": "com.radar.app",
+      "versionCode": 10,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.WRITE_EXTERNAL_STORAGE",

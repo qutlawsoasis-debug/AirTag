@@ -1,13 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, Text, View, TouchableOpacity, 
-  TextInput, PermissionsAndroid, Platform, Alert
+  TextInput, PermissionsAndroid, Platform, Alert, ActivityIndicator
 } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
 import { Buffer } from 'buffer';
 import Toast from 'react-native-toast-message';
 import { checkForUpdate, downloadUpdate } from './utils/updater';
+import { 
+  useFonts, 
+  Outfit_400Regular, 
+  Outfit_500Medium, 
+  Outfit_600SemiBold 
+} from '@expo-google-fonts/outfit';
 
+const CURRENT_VERSION = require('./package.json').version;
 const manager = new BleManager();
 
 const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
@@ -16,6 +23,12 @@ const CHAR_UUID_BEEP = "beb5483e-36e1-4688-b7f5-ea07361b26a9";
 const CHAR_UUID_TARGET_ID = "beb5483e-36e1-4688-b7f5-ea07361b26a0";
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+  });
+
   const [isConnected, setIsConnected] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [connectedDevice, setConnectedDevice] = useState(null);
@@ -122,7 +135,7 @@ export default function App() {
         type: 'success',
         text1: 'СИНХРОНИЗАЦИЯ УСПЕШНА',
         position: 'bottom',
-        bottomOffset: 60
+        bottomOffset: 120
       });
     } catch (e) {
       console.warn(e);
@@ -130,7 +143,7 @@ export default function App() {
         type: 'error',
         text1: 'ОШИБКА СВЯЗИ',
         position: 'bottom',
-        bottomOffset: 60
+        bottomOffset: 120
       });
     }
   };
@@ -142,7 +155,7 @@ export default function App() {
 
   const triggerBeep = async () => {
     if (!connectedDevice) {
-      Toast.show({ type: 'error', text1: 'СВЯЗЬ НЕ УСТАНОВЛЕНА', position: 'bottom', bottomOffset: 60 });
+      Toast.show({ type: 'error', text1: 'СВЯЗЬ НЕ УСТАНОВЛЕНА', position: 'bottom', bottomOffset: 120 });
       return;
     }
     try {
@@ -168,6 +181,14 @@ export default function App() {
     }
   };
 
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#141416', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator color="#4ade80" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       
@@ -176,8 +197,8 @@ export default function App() {
         <Text style={styles.title}>AirTag</Text>
         
         <TouchableOpacity style={styles.statusRow} onPress={toggleConnection} activeOpacity={0.7}>
-          <View style={[styles.dot, { backgroundColor: isConnected ? '#4ade80' : '#3a3a3a' }]} />
-          <Text style={[styles.statusText, { color: isConnected ? '#4ade80' : '#555555' }]}>
+          <View style={[styles.dot, { backgroundColor: isConnected ? '#4ade80' : '#44444a' }]} />
+          <Text style={[styles.statusText, { color: isConnected ? '#4ade80' : '#888890' }]}>
             {isScanning ? "Идёт поиск..." : (isConnected ? "Radar-01 · подключён" : "Нет подключения")}
           </Text>
         </TouchableOpacity>
@@ -213,7 +234,7 @@ export default function App() {
             onChangeText={(t) => setTargetName(t.replace(/[^A-Za-z0-9 ]/g, ''))}
             onEndEditing={() => syncSettings(targetId, targetName)}
             placeholder="ALPHA"
-            placeholderTextColor="#333333"
+            placeholderTextColor="#55555c"
             maxLength={10}
             returnKeyType="done"
           />
@@ -229,20 +250,27 @@ export default function App() {
         <Text style={styles.actionTextRight}>→</Text>
       </TouchableOpacity>
 
-      {updateInfo && (
-        <View style={styles.updateBanner}>
-          <Text style={styles.updateTextLeft}>
-            Обновление <Text style={styles.updateVersion}>{updateInfo.version}</Text>
-          </Text>
-          {!downloading ? (
-            <TouchableOpacity onPress={handleDownload}>
-              <Text style={styles.updateBtnText}>Скачать →</Text>
-            </TouchableOpacity>
-          ) : (
-            <Text style={styles.updateBtnText}>{Math.round(progress * 100)}%</Text>
-          )}
-        </View>
-      )}
+      {/* Footer pinned to bottom */}
+      <View style={styles.footer}>
+        {updateInfo ? (
+          <View style={styles.updateBanner}>
+            <Text style={styles.updateTextLeft}>
+              Доступно <Text style={styles.updateVersion}>v{updateInfo.version}</Text>
+            </Text>
+            {!downloading ? (
+              <TouchableOpacity onPress={handleDownload} style={styles.updateBtn}>
+                <Text style={styles.updateBtnText}>Обновить</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.updateBtn}>
+                <Text style={styles.updateBtnText}>{Math.round(progress * 100)}%</Text>
+              </View>
+            )}
+          </View>
+        ) : (
+          <Text style={styles.versionText}>AirTag v{CURRENT_VERSION}</Text>
+        )}
+      </View>
 
       <Toast />
     </View>
@@ -252,144 +280,180 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0c0c0c',
+    backgroundColor: '#141416', // Сделали чуть светлее, не глухой черный
   },
   topBlock: {
-    paddingTop: 56,
+    paddingTop: 64,
     paddingHorizontal: 24,
   },
   topSmallText: {
-    color: '#555555',
+    fontFamily: 'Outfit_500Medium',
+    color: '#888890',
     fontSize: 13,
-    letterSpacing: 0.4,
-    marginBottom: 4,
+    letterSpacing: 0.8,
+    marginBottom: 6,
+    textTransform: 'uppercase',
   },
   title: {
-    color: '#f5f5f5',
-    fontSize: 30,
-    fontWeight: '500',
+    fontFamily: 'Outfit_600SemiBold',
+    color: '#ffffff',
+    fontSize: 34,
     letterSpacing: -1,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 18,
   },
   dot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    marginRight: 8,
+    marginRight: 10,
   },
   statusText: {
-    fontSize: 13,
+    fontFamily: 'Outfit_500Medium',
+    fontSize: 14,
   },
   divider: {
     height: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#232326', // Более явный разделитель
     marginHorizontal: 24,
-    marginTop: 28,
-    marginBottom: 28,
+    marginTop: 32,
+    marginBottom: 32,
   },
   section: {
     paddingHorizontal: 24,
   },
   sectionLabel: {
-    color: '#444444',
+    fontFamily: 'Outfit_600SemiBold',
+    color: '#66666e',
     fontSize: 11,
-    letterSpacing: 0.6,
+    letterSpacing: 1,
     textTransform: 'uppercase',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   rowLabel: {
-    color: '#666666',
-    fontSize: 15,
+    fontFamily: 'Outfit_500Medium',
+    color: '#a0a0a5',
+    fontSize: 16,
   },
   channelGroup: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
   channelBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#222222',
+    borderColor: '#333338', // Ярче граница
+    backgroundColor: '#1c1c1e',
     justifyContent: 'center',
     alignItems: 'center',
   },
   channelBtnActive: {
-    borderColor: '#f5f5f5',
+    borderColor: '#ffffff',
+    backgroundColor: '#ffffff',
   },
   channelText: {
-    color: '#555555',
-    fontSize: 13,
+    fontFamily: 'Outfit_600SemiBold',
+    color: '#888890',
+    fontSize: 14,
   },
   channelTextActive: {
-    color: '#f5f5f5',
+    color: '#000000',
   },
   rowDivider: {
     height: 1,
-    backgroundColor: '#161616',
+    backgroundColor: '#202024',
     marginVertical: 4,
   },
   input: {
+    fontFamily: 'Outfit_500Medium',
     backgroundColor: 'transparent',
     borderBottomWidth: 1,
-    borderBottomColor: '#222222',
-    color: '#f5f5f5',
-    fontSize: 15,
+    borderBottomColor: '#44444a', // Заметная линия
+    color: '#ffffff', // Белый текст вместо серого
+    fontSize: 16,
     textAlign: 'right',
-    width: 140,
-    padding: 0,
-    height: 30,
+    width: 150,
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+    height: 34,
   },
   actionBtn: {
     borderWidth: 1,
-    borderColor: '#1e1e1e',
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
+    borderColor: '#333338',
+    backgroundColor: '#1c1c1e',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 28,
+    marginTop: 32,
     marginHorizontal: 24,
   },
   actionTextLeft: {
-    color: '#888888',
-    fontSize: 15,
+    fontFamily: 'Outfit_500Medium',
+    color: '#d0d0d5',
+    fontSize: 16,
   },
   actionTextRight: {
-    color: '#333333',
-    fontSize: 15,
+    fontFamily: 'Outfit_500Medium',
+    color: '#55555c',
+    fontSize: 16,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 30,
+    left: 24,
+    right: 24,
+    alignItems: 'center',
+  },
+  versionText: {
+    fontFamily: 'Outfit_500Medium',
+    color: '#55555c',
+    fontSize: 12,
+    letterSpacing: 0.5,
   },
   updateBanner: {
-    backgroundColor: '#111111',
-    borderRadius: 14,
+    width: '100%',
+    backgroundColor: '#1c1c1e',
+    borderWidth: 1,
+    borderColor: '#333338',
+    borderRadius: 16,
     paddingVertical: 14,
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 24,
-    marginHorizontal: 24,
   },
   updateTextLeft: {
-    color: '#555555',
-    fontSize: 13,
+    fontFamily: 'Outfit_500Medium',
+    color: '#a0a0a5',
+    fontSize: 14,
   },
   updateVersion: {
-    color: '#888888',
+    fontFamily: 'Outfit_600SemiBold',
+    color: '#ffffff',
+  },
+  updateBtn: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
   },
   updateBtnText: {
-    color: '#f5f5f5',
+    fontFamily: 'Outfit_600SemiBold',
+    color: '#000000',
     fontSize: 13,
   }
 });
