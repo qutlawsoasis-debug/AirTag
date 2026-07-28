@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, Text, View, TouchableOpacity, 
-  TextInput, PermissionsAndroid, Platform 
+  TextInput, PermissionsAndroid, Platform, Alert
 } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
 import { Buffer } from 'buffer';
@@ -164,6 +164,7 @@ export default function App() {
     } catch (e) {
       setDownloading(false);
       setProgress(0);
+      Alert.alert('Ошибка скачивания/установки', String(e.message || e));
     }
   };
 
